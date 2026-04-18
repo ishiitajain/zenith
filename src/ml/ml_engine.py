@@ -48,7 +48,7 @@ class ValoraMasterEngine:
             }
             
             try:
-                requests.post(API_URL, json=payload, timeout=0.01)
+                requests.post(API_URL, json=payload, timeout=0.1)
             except requests.exceptions.RequestException:
                 pass
                 

@@ -1,6 +1,6 @@
-mediapipe
-opencv-python
-requests
-fastapi
-uvicorn
-numpy
+mediapipe==0.10.8
+opencv-python==4.8.1.78
+requests==2.31.0
+fastapi==0.104.1
+uvicorn==0.23.2
+numpy==1.26.2
