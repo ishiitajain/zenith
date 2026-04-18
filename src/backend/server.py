@@ -1,11 +1,16 @@
 import os
 import json
 import time
+import base64
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI(title="Valora Backend Server")
+
+os.makedirs("evidence", exist_ok=True)
+app.mount("/evidence", StaticFiles(directory="evidence"), name="evidence")
 
 # Allow Frontend access
 app.add_middleware(
@@ -27,6 +32,7 @@ connected_clients = []
 backend_override_until = 0.0
 last_spoken_time = 0.0
 server_audio_latch = False
+global_last_sos_state = False
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -65,6 +71,39 @@ async def receive_alert(payload: AlertPayload):
     if len(active_threats) > 50:
         active_threats.pop()
         
+    # Check if a NEW SOS just triggered
+    global global_last_sos_state
+    if data['sos_triggered'] and not global_last_sos_state:
+        # BURST CAPTURE: grab 4 recent frames from rolling buffer
+        ts_id = int(time.time())
+        saved_urls = []
+        for i in range(0, min(20, len(active_threats)), 5):
+            try:
+                frame_b64 = active_threats[i]['camera_frame'].replace("data:image/jpeg;base64,", "")
+                img_data = base64.b64decode(frame_b64)
+                fname = f"incident_{ts_id}_f{i}.jpg"
+                fpath = os.path.join("evidence", fname)
+                with open(fpath, "wb") as f:
+                    f.write(img_data)
+                saved_urls.append(f"/evidence/{fname}")
+            except Exception:
+                pass
+        
+        # Dispatch Evidence Notification to Police
+        if saved_urls:
+            evidence_msg = {
+                "command": "evidence_logged",
+                "timestamp": ts_id,
+                "images": saved_urls
+            }
+            for client in connected_clients:
+                try:
+                    await client.send_json(evidence_msg)
+                except Exception:
+                    pass
+
+    global_last_sos_state = data['sos_triggered']
+    
     # Broadcast Live Alert to all connected command centers
     for client in connected_clients:
         try:
