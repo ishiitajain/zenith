@@ -27,7 +27,7 @@ Valora is a specialized safety system designed to eliminate the lag between a di
 **1. Clone the Repository:**
 ```bash
 git clone <your-repo-link>
-cd valora-safety
+cd HOF-Zenith
 ```
 
 **2. Start the Dispatch Backend:**
