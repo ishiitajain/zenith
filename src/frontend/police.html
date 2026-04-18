@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.A.F.E. Police Dispatch Terminal</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+        body {
+            margin: 0; background: #0a0a0a; color: white;
+            font-family: 'Roboto', sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; overflow: hidden;
+            transition: background 0.3s;
+        }
+        .container {
+            width: 90%; max-width: 1200px;
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        .header { grid-column: 1 / -1; text-align: center; margin-bottom: 2rem; }
+        .alert-plate {
+            background: #1a1a1a; border: 2px solid #333;
+            border-radius: 12px; padding: 2rem;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center;
+        }
+        .feed-plate {
+            background: #111; border: 2px solid #333;
+            border-radius: 12px; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 400px;
+        }
+        img { width: 100%; height: 100%; object-fit: cover; display: none; transition: opacity 0.5s; }
+        
+        .red-flash { animation: strobe 0.8s infinite alternate; }
+        @keyframes strobe {
+            from { background: #330000; }
+            to { background: #ff0000; }
+        }
+        
+        button {
+            margin-top: 2rem; padding: 15px 30px;
+            font-size: 1.2rem; font-weight: bold; background: #333; color: white;
+            border: 2px solid #555; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover { background: #555; }
+        button:active { background: #000; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="top-title" style="color:#555; font-size: 3rem; letter-spacing: 5px;">DISPATCH IDLE</h1>
+        <button id="activate-btn" onclick="initPoliceAudio()" style="padding: 10px 20px; font-size: 1rem; border: none; background: #007bff; color: white; cursor: pointer; border-radius: 5px; margin-top: 10px;">INITIALIZE SECURE AUDIO LINK</button>
+    </div>
+    <div class="container">
+        <div class="alert-plate" id="alert-box">
+            <h2 id="status-h2" style="color:#555; font-size:2.5rem; margin:0;">NO ALARM</h2>
+            <p id="loc-text" style="color:#fff; font-size:1.5rem; display:none; line-height: 1.6;">
+                <br><b style="color: yellow;">!!! LOCATION INCIDENT VERIFIED !!!</b><br>
+                Region Alpha — [26.8467, 80.9462]<br>Lucknow Sector A
+            </p>
+            <button onclick="dismissOverride()" id="dismiss-btn" style="display:none;">DISMISS FAKE ALARM REMOTE</button>
+        </div>
+        <div class="feed-plate" id="feed-box">
+            <h3 id="no-feed-text" style="color:#555;">[NO SIGNAL]</h3>
+            <img id="dispatch-cam" src="">
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8000/ws');
+        
+        // --- Web Audio Siren API ---
+        let audioCtx;
+        let sirenOscillator = null;
+        let sirenGain = null;
+        let sirenInterval = null;
+        let isAudioInit = false;
+        let isAlarming = false;
+
+        function initPoliceAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            isAudioInit = true;
+            const btn = document.getElementById('activate-btn');
+            btn.innerText = "AUDIO COMMS ARMED";
+            btn.style.background = "#28a745";
+            btn.disabled = true;
+            // Unlock audio context natively
+            const dummy = audioCtx.createOscillator();
+            dummy.connect(audioCtx.destination);
+            dummy.start(); dummy.stop(audioCtx.currentTime + 0.01);
+        }
+
+        function playSiren() {
+            if(!isAudioInit) return;
+            if(!isAlarming) {
+                isAlarming = true;
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                sirenOscillator = audioCtx.createOscillator();
+                sirenGain = audioCtx.createGain();
+                sirenOscillator.type = 'sawtooth';
+                sirenOscillator.connect(sirenGain);
+                sirenGain.connect(audioCtx.destination);
+                sirenGain.gain.value = 1.0; // MAX VOLUME FOR POLICE
+                sirenOscillator.start();
+                
+                let high = true;
+                sirenInterval = setInterval(() => {
+                    sirenOscillator.frequency.setValueAtTime(high ? 900 : 700, audioCtx.currentTime);
+                    high = !high;
+                }, 300);
+            }
+        }
+
+        function stopSiren() {
+            if(isAlarming) {
+                isAlarming = false;
+                if(sirenOscillator) {
+                    try { sirenOscillator.stop(); } catch(e){}
+                    sirenOscillator.disconnect();
+                    sirenGain.disconnect();
+                    sirenOscillator = null;
+                }
+                if(sirenInterval) clearInterval(sirenInterval);
+            }
+        }
+
+        async function dismissOverride() {
+            try {
+                // Instantly blast the global dismiss command to the Python API
+                await fetch('http://localhost:8000/api/dismiss', { method: 'POST' });
+                resetUI();
+            } catch(e) {}
+        }
+
+        function resetUI() {
+            document.body.className = '';
+            document.getElementById('top-title').innerText = "DISPATCH IDLE";
+            document.getElementById('top-title').style.color = "#555";
+            
+            document.getElementById('status-h2').innerText = "NO ALARM";
+            document.getElementById('status-h2').style.color = "#555";
+            
+            document.getElementById('loc-text').style.display = 'none';
+            document.getElementById('dismiss-btn').style.display = 'none';
+            
+            document.getElementById('dispatch-cam').style.opacity = 0.2; // Dim old feed
+            stopSiren();
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // ALWAYS PROCESS CAMERA FRAME OUTSIDE ALARM STATE
+            if (data.camera_frame) {
+                document.getElementById('no-feed-text').style.display = 'none';
+                document.getElementById('dispatch-cam').style.display = 'block';
+                document.getElementById('dispatch-cam').src = data.camera_frame;
+            }
+            
+            if (data.sos_triggered) {
+                if(document.body.className !== 'red-flash') {
+                    // Ignite Strobe Warning
+                    document.body.className = 'red-flash';
+                    document.getElementById('top-title').innerText = "!!! CRITICAL LATCH !!!";
+                    document.getElementById('top-title').style.color = "white";
+                    
+                    document.getElementById('status-h2').innerText = "IMMEDIATE RESPONSE REQUIRED";
+                    document.getElementById('status-h2').style.color = "white";
+                    
+                    document.getElementById('loc-text').style.display = 'block';
+                    document.getElementById('dismiss-btn').style.display = 'block';
+                }
+                
+                document.getElementById('dispatch-cam').style.opacity = 1;
+                playSiren();
+            } else {
+                if(document.body.className === 'red-flash') {
+                    resetUI();
+                }
+            }
+        };
+    </script>
+</body>
+</html>
