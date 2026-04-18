@@ -1,0 +1,27 @@
+# Python Environment
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+.python-version
+
+# Machine Learning Weights
+*.pt
+*.onnx
+*.weights
+*.task
+*.h5
+*.pb
+
+# IDEs and OS
+.DS_Store
+.idea/
+.vscode/
+
+# Ignore local datasets or logs
+*.csv
+*.mp4
+*.jpg
+*.png
+*.log
