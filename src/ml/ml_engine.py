@@ -48,7 +48,12 @@ class ValoraMasterEngine:
             }
             
             try:
-                requests.post(API_URL, json=payload, timeout=0.1)
+                response = requests.post(API_URL, json=payload, timeout=0.1)
+                if response.status_code == 200:
+                    resp_json = response.json()
+                    if resp_json and resp_json.get("force_reset"):
+                        self.vision.sos_latched = False
+                        self.vision.locked_handedness = None
             except requests.exceptions.RequestException:
                 pass
                 

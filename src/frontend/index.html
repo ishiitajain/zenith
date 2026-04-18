@@ -258,14 +258,31 @@
                     recognition.lang = 'en-IN';
                     
                     recognition.onresult = async (event) => {
-                        const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                        let transcript = "";
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            transcript += event.results[i][0].transcript.toLowerCase() + " ";
+                        }
                         
                         if(transcript.includes("help") || transcript.includes("bachao") || transcript.includes("save me")) {
-                            voiceSOSLatch = true;
+                            if(!voiceSOSLatch) {
+                                voiceSOSLatch = true;
+                                fetch('http://localhost:8000/api/audio_alert', { 
+                                    method: 'POST', 
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({triggered: true}) 
+                                }).catch(e => console.error(e));
+                            }
                         }
                         
                         if(transcript.includes("i am safe") || transcript.includes("safe")) {
-                            voiceSOSLatch = false;
+                            if(voiceSOSLatch) {
+                                voiceSOSLatch = false;
+                                fetch('http://localhost:8000/api/audio_alert', { 
+                                    method: 'POST', 
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({triggered: false}) 
+                                }).catch(e => console.error(e));
+                            }
                             // Blast the backend to clear any Visual AI lock as well!
                             await fetch('http://localhost:8000/api/dismiss', { method: 'POST' });
                         }
@@ -332,6 +349,15 @@
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            
+            if (data.command === "force_dismiss") {
+                voiceSOSLatch = false;
+                if(isAlarming) {
+                    isAlarming = false;
+                    stopSiren();
+                }
+                return;
+            }
             
             // UI Components
             const statusBox = document.getElementById('global-status-box');
