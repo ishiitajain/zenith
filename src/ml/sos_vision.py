@@ -52,26 +52,32 @@ class SOSVisionTracker:
                     cx, cy = int(lm.x * w), int(lm.y * h)
                     cv2.circle(frame_bgr, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
                     
-            if hasattr(result, 'gestures') and result.gestures:
-                # We iterate over all hands detected in the frame
-                for i in range(len(result.gestures)):
-                    if len(result.gestures[i]) > 0:
-                        gesture = result.gestures[i][0].category_name
-                        score = result.gestures[i][0].score
-                        hand_name = None
+        if hasattr(result, 'gestures') and result.gestures:
+            fists = []
+            peaces = []
+            # We iterate over all hands detected in the frame
+            for i in range(len(result.gestures)):
+                if len(result.gestures[i]) > 0:
+                    gesture = result.gestures[i][0].category_name
+                    score = result.gestures[i][0].score
+                    hand_name = None
+                    
+                    if hasattr(result, 'handedness') and result.handedness and len(result.handedness) > i:
+                        hand_name = result.handedness[i][0].category_name
                         
-                        if hasattr(result, 'handedness') and result.handedness and len(result.handedness) > i:
-                            hand_name = result.handedness[i][0].category_name
-                            
-                        # If ANY hand is making an SOS gesture, lock onto it
-                        if score > 0.45:
-                            if gesture == "Closed_Fist":
-                                gesture_detected = "SOS"
-                                handedness_detected = hand_name
-                                break # Prioritize the first SOS hand found
-                            elif gesture == "Victory":
-                                gesture_detected = "CANCEL"
-                                handedness_detected = hand_name
+                    if score > 0.45:
+                        if gesture == "Closed_Fist":
+                            fists.append(hand_name)
+                        elif gesture == "Victory":
+                            peaces.append(hand_name)
+
+            if fists:
+                gesture_detected = "SOS"
+                # Pin the tracking lock to the active hand if both hands throw the SOS gesture, preventing timer resets
+                handedness_detected = self.active_handedness if self.active_handedness in fists else fists[0]
+            elif peaces:
+                gesture_detected = "CANCEL"
+                handedness_detected = self.active_handedness if self.active_handedness in peaces else peaces[0]
 
         # Stability Block: Resets perfectly if NO constraints match (even if it flashes 'None' naturally!)
         if gesture_detected != self.last_stable_gesture or handedness_detected != self.active_handedness:

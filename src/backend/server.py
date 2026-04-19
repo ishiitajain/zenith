@@ -132,8 +132,8 @@ async def dismiss_alert():
     global backend_override_until, server_audio_latch
     # Kill any actively speaking Mac phrases
     os.system("killall say > /dev/null 2>&1")
-    # Override all AI alerts for the next 10 seconds unconditionally
-    backend_override_until = time.time() + 10.0
+    # Hackathon Fix: Lower cooldown from 10.0s to 1.0s so you can rapidly demo it!
+    backend_override_until = time.time() + 1.0
     server_audio_latch = False
     
     # Force frontend clear

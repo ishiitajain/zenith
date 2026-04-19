@@ -112,19 +112,31 @@ function EdgeDevice() {
         recognitionRef.current = recognition;
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'en-IN';
+        recognition.lang = 'en-US';
+        
+        recognition.onaudiostart = () => console.log("Audio capturing started");
+        recognition.onsoundstart = () => setLiveTranscript("[🎤 Mic Active - Waiting for Words...]");
+        recognition.onspeechstart = () => console.log("Speech detected");
         
         recognition.onresult = async (event) => {
-          let transcript = "";
-          for (let i = 0; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript.toLowerCase() + " ";
+          let currentPhrase = "";
+          // CRITICAL BUG FIX: Only read the most recent speech block instead of the entire historical array
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            currentPhrase += event.results[i][0].transcript.toLowerCase() + " ";
           }
           
-          setLiveTranscript(transcript);
-          let cleanText = transcript.replace(/[.,!?]/g, '').trim();
+          setLiveTranscript(currentPhrase);
+          let cleanText = currentPhrase.replace(/[.,!?]/g, '').trim();
           
-          const sosTriggers = ["help", "save me", "bachao", "bachaao", "emergency", "danger", "please help", "but how", "baccho", "baca", "pa cho"];
-          if(sosTriggers.some(word => cleanText.includes(word))) {
+          // Broaden SOS Triggers to catch ANY variation of panic
+          const sosTriggers = ["help", "bachao", "bacha", "save me", "emergency", "danger", "police", "someone", "please"];
+          // Extremely strict safe triggers so it NEVER accidentally cancels your alarm!
+          const safeTriggers = ["i am safe", "valora dismiss", "valora stop", "false alarm"];
+          
+          let isPanic = sosTriggers.some(word => cleanText.includes(word));
+          let isSafe = safeTriggers.some(word => cleanText.includes(word));
+          
+          if(isPanic && !isSafe) {
             if(!voiceSOSLatchRef.current) {
               voiceSOSLatchRef.current = true;
               setAudioSos(true);
@@ -136,8 +148,7 @@ function EdgeDevice() {
             }
           }
           
-          const safeTriggers = ["i am safe", "im safe", "i'm safe", "safe now", "cancel alarm", "false alarm", "safe", "stop", "cancel"];
-          if(safeTriggers.some(word => cleanText.includes(word))) {
+          if(isSafe) {
             if(voiceSOSLatchRef.current) {
               voiceSOSLatchRef.current = false;
               setAudioSos(false);
@@ -148,11 +159,24 @@ function EdgeDevice() {
               }).catch(e => console.error(e));
             }
             await fetch('http://localhost:8000/api/dismiss', { method: 'POST' });
+            setLiveTranscript("Alarm Cancelled.");
           }
         };
+        
+        recognition.onerror = (event) => {
+            console.error("Speech API Error:", event.error);
+            if (event.error !== 'no-speech') {
+                setLiveTranscript(`[MIC BLOCKED]: ${event.error}. Check OS Settings.`);
+            } else {
+                setLiveTranscript("[SILENCE DETECTED]");
+            }
+        };
+        
         recognition.onend = () => {
             if (recognitionRef.current) {
-                try { recognition.start(); } catch(e) {}
+                setTimeout(() => {
+                    try { recognition.start(); } catch(e) {}
+                }, 1000);
             }
         };
         recognition.start();
