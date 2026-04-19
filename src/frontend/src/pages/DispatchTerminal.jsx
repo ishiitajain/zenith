@@ -7,6 +7,8 @@ function DispatchTerminal() {
   const [sosTriggered, setSosTriggered] = useState(false);
   const [cameraFrame, setCameraFrame] = useState('');
   const [evidenceLogs, setEvidenceLogs] = useState([]);
+  const [distressLocation, setDistressLocation] = useState(null);
+  const [distressAddress, setDistressAddress] = useState("Awaiting satellite triangulation...");
   
   const wsRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -17,6 +19,22 @@ function DispatchTerminal() {
   useEffect(() => {
     document.body.className = sosTriggered ? 'police-theme red-flash' : 'police-theme';
   }, [sosTriggered]);
+
+  useEffect(() => {
+    if (distressLocation) {
+      setDistressAddress("Resolving physical address...");
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${distressLocation.lat}&longitude=${distressLocation.lng}&localityLanguage=en`)
+        .then(res => res.json())
+        .then(data => {
+            if(data && data.locality) {
+                const address = `${data.locality}, ${data.principalSubdivision}, ${data.countryName}`;
+                setDistressAddress(address);
+            } else {
+                setDistressAddress("Unmapped Remote Area");
+            }
+        }).catch(e => setDistressAddress("Secure link geocoding failed."));
+    }
+  }, [distressLocation]);
 
   useEffect(() => {
     document.body.className = 'police-theme';
@@ -39,6 +57,15 @@ function DispatchTerminal() {
         setSosTriggered(true);
       } else {
         setSosTriggered(false);
+      }
+      
+      if (data.location) {
+        setDistressLocation(prev => {
+          if (prev && prev.lat === data.location.lat && prev.lng === data.location.lng) {
+            return prev;
+          }
+          return data.location;
+        });
       }
     };
 
@@ -155,10 +182,11 @@ function DispatchTerminal() {
           <h2 style={{color: sosTriggered ? "white" : "#555", fontSize: "2.5rem", margin: 0}}>
             {sosTriggered ? "IMMEDIATE RESPONSE REQUIRED" : "NO ALARM"}
           </h2>
-          {sosTriggered && (
+          {sosTriggered && distressLocation && (
             <p style={{color: "#fff", fontSize: "1.5rem", lineHeight: "1.6"}}>
               <br/><b style={{color: "yellow"}}>!!! LOCATION INCIDENT VERIFIED !!!</b><br/>
-              Region Alpha — [26.8467, 80.9462]<br/>Lucknow Sector A
+              GPS Drop — [{distressLocation.lat.toFixed(5)}, {distressLocation.lng.toFixed(5)}]<br/>
+              <span style={{fontSize: "1.1rem", color: "#ccc", display: "inline-block", marginTop: "10px", padding: "10px", background: "rgba(0,0,0,0.5)", borderRadius: "8px"}}>{distressAddress}</span>
             </p>
           )}
           {sosTriggered && (

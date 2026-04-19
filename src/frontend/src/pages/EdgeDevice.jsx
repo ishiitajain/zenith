@@ -51,6 +51,20 @@ function EdgeDevice() {
         setCameraFrame(data.camera_frame);
       }
     };
+    
+    // Grab HTML5 Geolocation and push to API
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        fetch('http://localhost:8000/api/location', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            lat: position.coords.latitude, 
+            lng: position.coords.longitude
+          })
+        }).catch(e => console.error("Loc Sync Error:", e));
+      }, (e) => console.log("Geo Denied", e));
+    }
 
     return () => {
       document.body.className = '';

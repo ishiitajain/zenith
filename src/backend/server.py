@@ -33,6 +33,17 @@ backend_override_until = 0.0
 last_spoken_time = 0.0
 server_audio_latch = False
 global_last_sos_state = False
+current_lat, current_lng = 26.8467, 80.9462
+
+class LocationPayload(BaseModel):
+    lat: float
+    lng: float
+
+@app.post("/api/location")
+async def update_location(payload: LocationPayload):
+    global current_lat, current_lng
+    current_lat, current_lng = payload.lat, payload.lng
+    return {"status": "success"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -94,7 +105,8 @@ async def receive_alert(payload: AlertPayload):
             evidence_msg = {
                 "command": "evidence_logged",
                 "timestamp": ts_id,
-                "images": saved_urls
+                "images": saved_urls,
+                "location": {"lat": current_lat, "lng": current_lng}
             }
             for client in connected_clients:
                 try:
@@ -103,6 +115,8 @@ async def receive_alert(payload: AlertPayload):
                     pass
 
     global_last_sos_state = data['sos_triggered']
+    
+    data['location'] = {'lat': current_lat, 'lng': current_lng}
     
     # Broadcast Live Alert to all connected command centers
     for client in connected_clients:

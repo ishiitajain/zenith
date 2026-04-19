@@ -1,16 +1,18 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 import EdgeDevice from './pages/EdgeDevice';
 import DispatchTerminal from './pages/DispatchTerminal';
-import './index.css';
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<EdgeDevice />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/edge" element={<EdgeDevice />} />
         <Route path="/police" element={<DispatchTerminal />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
