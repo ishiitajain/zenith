@@ -8,6 +8,7 @@ function EdgeDevice() {
   const [audioSos, setAudioSos] = useState(false);
   const [isAudioInit, setIsAudioInit] = useState(false);
   const [isAlarmingState, setIsAlarmingState] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
 
   const wsRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -101,13 +102,14 @@ function EdgeDevice() {
         
         recognition.onresult = async (event) => {
           let transcript = "";
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          for (let i = 0; i < event.results.length; ++i) {
             transcript += event.results[i][0].transcript.toLowerCase() + " ";
           }
           
+          setLiveTranscript(transcript);
           let cleanText = transcript.replace(/[.,!?]/g, '').trim();
           
-          const sosTriggers = ["help", "save me", "bachao", "bachaao", "emergency", "danger", "please help"];
+          const sosTriggers = ["help", "save me", "bachao", "bachaao", "emergency", "danger", "please help", "but how", "baccho", "baca", "pa cho"];
           if(sosTriggers.some(word => cleanText.includes(word))) {
             if(!voiceSOSLatchRef.current) {
               voiceSOSLatchRef.current = true;
@@ -120,7 +122,7 @@ function EdgeDevice() {
             }
           }
           
-          const safeTriggers = ["i am safe", "im safe", "i'm safe", "safe now", "cancel alarm", "false alarm"];
+          const safeTriggers = ["i am safe", "im safe", "i'm safe", "safe now", "cancel alarm", "false alarm", "safe", "stop", "cancel"];
           if(safeTriggers.some(word => cleanText.includes(word))) {
             if(voiceSOSLatchRef.current) {
               voiceSOSLatchRef.current = false;
@@ -201,7 +203,7 @@ function EdgeDevice() {
         <div className="brand" id="brand-indicator">Valora Edge</div>
         <p style={{color: "var(--text-muted)", fontSize: "0.95rem", lineHeight: "1.6"}}>
           Strict Focus Architecture.<br/><br/>
-          Audio SOS:<br/>Shout "help", "save me", or "bachao"<br/>Cancel: "i am safe"<br/><br/>
+          Audio SOS:<br/>Shout "help", "save me", or "bachao"<br/>Cancel: "safe", "stop", or "cancel"<br/><br/>
           Visual SOS:<br/>Hold Fist for 3s<br/>Cancel: Hold Peace Sign for 2s (Same Hand)
         </p>
         
@@ -295,6 +297,13 @@ function EdgeDevice() {
                   {audioSos ? "PANIC" : "Listening..."}
                 </span>
               </div>
+            </div>
+            
+            <div className="metric-card" style={{marginTop: "5px"}}>
+              <span className="label">Live Raw Audio Transcript</span>
+              <span style={{fontSize: "1.1rem", fontStyle: "italic", color: "var(--text-main)", marginTop: "10px", minHeight: "30px", wordBreak: "break-word"}}>
+                {liveTranscript || "Waiting for voice..."}
+              </span>
             </div>
           </div>
         </div>
