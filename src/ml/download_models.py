@@ -5,7 +5,8 @@ import time
 
 urls = {
     "yolov8s-pose.pt": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s-pose.pt",
-    "yolov8s.pt": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s.pt"
+    "yolov8s.pt": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8s.pt",
+    "gesture_recognizer.task": "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task"
 }
 
 print("\n🚀 Starting Invincible Download AI for SOTA Models...")
