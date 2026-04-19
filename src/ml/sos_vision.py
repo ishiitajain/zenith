@@ -13,7 +13,7 @@ class SOSVisionTracker:
             options = vision.GestureRecognizerOptions(
                 base_options=base_options, 
                 running_mode=vision.RunningMode.VIDEO,
-                num_hands=1,
+                num_hands=5, # Increased to track multiple hands 
                 min_hand_detection_confidence=0.4,
                 min_hand_presence_confidence=0.4,
                 min_tracking_confidence=0.4
@@ -52,20 +52,26 @@ class SOSVisionTracker:
                     cx, cy = int(lm.x * w), int(lm.y * h)
                     cv2.circle(frame_bgr, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
                     
-            if hasattr(result, 'gestures') and result.gestures and len(result.gestures) > 0:
-                top_gesture = result.gestures[0][0].category_name
-                gesture_score = result.gestures[0][0].score
-                
-                # Biometric Hand Tracking extraction
-                if hasattr(result, 'handedness') and result.handedness and len(result.handedness) > 0:
-                    handedness_detected = result.handedness[0][0].category_name
-                
-                # Trigger bounds
-                if gesture_score > 0.45:
-                    if top_gesture == "Closed_Fist":
-                        gesture_detected = "SOS"
-                    elif top_gesture == "Victory":
-                        gesture_detected = "CANCEL"
+            if hasattr(result, 'gestures') and result.gestures:
+                # We iterate over all hands detected in the frame
+                for i in range(len(result.gestures)):
+                    if len(result.gestures[i]) > 0:
+                        gesture = result.gestures[i][0].category_name
+                        score = result.gestures[i][0].score
+                        hand_name = None
+                        
+                        if hasattr(result, 'handedness') and result.handedness and len(result.handedness) > i:
+                            hand_name = result.handedness[i][0].category_name
+                            
+                        # If ANY hand is making an SOS gesture, lock onto it
+                        if score > 0.45:
+                            if gesture == "Closed_Fist":
+                                gesture_detected = "SOS"
+                                handedness_detected = hand_name
+                                break # Prioritize the first SOS hand found
+                            elif gesture == "Victory":
+                                gesture_detected = "CANCEL"
+                                handedness_detected = hand_name
 
         # Stability Block: Resets perfectly if NO constraints match (even if it flashes 'None' naturally!)
         if gesture_detected != self.last_stable_gesture or handedness_detected != self.active_handedness:
